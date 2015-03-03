@@ -11,7 +11,7 @@ Sorunlu!
 Nasıl
 ======
 
-https://apps.twitter.com/ burdan yeni API oluşturup sağlayacağı sihirli
+https://apps.twitter.com/ adresinden yeni uygulama oluşturup sağlayacağı sihirli
 kelimeleri `config.js` dosyasında uyuşan yerlere yazdıktan sonra
 `node folloshr.js --keyword javascript --follow 10 --lang tr` komutunu
 çalıştırıp dua edeceksin. Eğer olur da çalışırsa *twitter canlı akıştan*
