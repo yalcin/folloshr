@@ -1,0 +1,21 @@
+{
+  "name": "untitled",
+  "version": "1.0.0",
+  "description": "twitter takipci seysi",
+  "main": "folloshr.js",
+  "dependencies": {
+    "twitter": "^1.2.1"
+  },
+  "devDependencies": {
+    "chalk": "^1.0.0",
+    "commander": "^2.6.0",
+    "sqlite3": "^3.0.5",
+    "twitter": "^1.2.1",
+    "underscore": "^1.8.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "yalcin",
+  "license": "ISC"
+}
