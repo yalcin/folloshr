@@ -13,8 +13,12 @@ Nasıl
 
 https://apps.twitter.com/ adresinden yeni uygulama oluşturup sağlayacağı sihirli
 kelimeleri `config.js` dosyasında uyuşan yerlere yazdıktan sonra
-`node folloshr.js --keyword javascript --follow 10 --lang tr` komutunu
-çalıştırıp dua edeceksin. Eğer olur da çalışırsa *twitter canlı akıştan*
+
+* `npm install`
+* `node folloshr.js --createdb`
+* `node folloshr.js --keyword javascript --follow 10 --lang tr`
+
+komutlarını çalıştırıp dua edeceksin. Eğer olur da çalışırsa *twitter canlı akıştan*
 anahtar kelimeye göre takipçi eklemeye başlayacak.
 
 
