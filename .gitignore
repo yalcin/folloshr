@@ -1,2 +1,5 @@
 node_modules
 folloshr.sqlite
+config.js
+config.coffee
+.idea

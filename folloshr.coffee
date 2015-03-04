@@ -9,9 +9,23 @@ fs = require('fs')
 db = new (sqlite3.Database)('folloshr.sqlite')
 _ = require('underscore')
 
+client = new Twitter(
+  consumer_key: config.consumer_key
+  consumer_secret: config.consumer_secret
+  access_token_key: config.access_token_key
+  access_token_secret: config.access_token_secret)
+
 getUser = (fn) ->
   client.get 'account/settings', {}, (err, user, response) =>
     fn(user)
+
+
+search = (keyword) ->
+  console.log("arama: #{chalk.cyan(keyword)}")
+  client.get 'search/tweets', {q: keyword, count: 100}, (err, items, response) ->
+    throw err if err
+    _.each items.statuses, (item) ->
+      follow(item)
 
 listen_stream = (keyword) ->
   stream_count = 0
@@ -22,67 +36,76 @@ listen_stream = (keyword) ->
       if stream_count == program.follow
         process.exit 1
       if tweet.lang == program.lang and tweet.user.id
-        add_follower tweet
+        follow tweet
     stream.on 'error', (error) ->
       throw error
 
-add_follower = (tweet) ->
-  query = 'SELECT user_id FROM followings WHERE user_id=\'' + tweet.user.id + '\''
+follow = (item) ->
+  query = 'SELECT user_id FROM followings WHERE user_id=\'' + item.user.id + '\''
   db.serialize ->
     db.get query, (err, row) ->
       throw err if err
 
       if typeof row == 'undefined'
-        client.post 'friendships/create', { user_id: tweet.user.id }, (error, follow, response) ->
+        client.post 'friendships/create', { user_id: item.user.id }, (error, follow, response) ->
           throw error if error
 
-          db.run 'INSERT INTO followings(user_id) VALUES(?)', tweet.user.id, ->
-            console.log "#{tweet.user.screen_name} #{chalk.green('followed')}"
+          db.run 'INSERT INTO followings(user_id) VALUES(?)', item.user.id, ->
+            console.log "#{item.user.screen_name} #{chalk.green('following')}"
 
 unfollow = (user) ->
   db.serialize ->
     countQuery = 'SELECT COUNT(user_id) AS count FROM followings WHERE unfollowed_at IS NULL'
     db.each countQuery, (err, row) ->
       count = row.count
-      max = 100
-      parts = if count < max
-        count / max
+      max = 50
+      parts = if count > max
+        Math.ceil count / max
       else
         1
       console.log parts
-      for i in [0..parts]
-        query = "SELECT user_id FROM followings LIMIT #{i * parts}, #{max} "
+
+      unfollowLoop = (i) ->
+        console.log "#{i} running"
+        query = "SELECT user_id FROM followings WHERE unfollowed_at IS NULL LIMIT #{i * parts}, #{max} "
         db.map query, (err, map) ->
           user_ids = _.map map, (val, key) ->
-            val
-          user_ids.join(',')
+            key
+          user_ids = user_ids.join()
 
-          db.each query, (err, row) ->
-            throw err if err
-            client.get 'friendships/lookup', {user_id: user_ids}, (err, item, response) ->
+          setTimeout ->
+            console.log "timer: #{i}"
+            client.get 'friendships/lookup', {user_id: user_ids}, (err, items, response) ->
               console.log err
               throw "lookup: #{err}" if err
-              i = item[0]
-              if i.connections.indexOf('followed_by')
-                console.log "#{i.screen_name} seni #{chalk.green('takip ediyor')}"
-              else
-                client.post 'friendships/destroy', {user_id: row.user_id}, (err, item, response) ->
-                  throw err if err
-                  # db.run 'DELETE FROM followings WHERE user_id=?', row.user_id, ->
-                    console.log "#{i.screen_name} #{chalk.red('unfollow')}"
+              _i = 0
+              for item in items
+                if _.contains(item.connections, 'followed_by')
+                  console.log "#{item.screen_name} seni #{chalk.green('takip ediyor')}"
+                else
+                  setTimeout ->
+                    client.post 'friendships/destroy', {user_id: item.id}, (err, data, response) ->
+                      if err
+                        console.log err
+                        throw err
+                      db.run 'UPDATE followings SET unfollowed_at=CURRENT_TIMESTAMP WHERE user_id=?', item.id, ->
+                        console.log "#{item.screen_name} #{chalk.red('unfollow')}"
+                  , (2000 * _i)
+                _i++
+          , (5000 * i)
+
+        if i < parts
+          unfollowLoop(i + 1)
+
+      unfollowLoop(0)
 
 
-
-client = new Twitter(
-  consumer_key: config.consumer_key
-  consumer_secret: config.consumer_secret
-  access_token_key: config.access_token_key
-  access_token_secret: config.access_token_secret)
 
 program
   .version('1.0.0')
   .usage('-k hashtag -f 1000 -l tr')
   .option('-k, --keyword [value]', 'Izlenecek kelime')
+  .option('-s, --search', 'Arama')
   .option('-f, --follow <n>', 'Takip edilecek kullanici limiti default: 100', Number)
   .option('-l, --lang [value]', 'Dil', String, 'tr')
   .option('-u, --unfollow', 'Takip etmeyenleri takibi birak', ->
@@ -108,4 +131,7 @@ unless program.unfollow? or program.createdb?
     program.outputHelp()
     process.exit(1)
   else
-    listen_stream(program.keyword)
+    if program.search?
+      search(program.keyword)
+    else
+      listen_stream(program.keyword)
