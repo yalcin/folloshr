@@ -9,11 +9,18 @@ fs = require('fs')
 db = new (sqlite3.Database)('folloshr.sqlite')
 _ = require('underscore')
 
+
 client = new Twitter(
   consumer_key: config.consumer_key
   consumer_secret: config.consumer_secret
   access_token_key: config.access_token_key
   access_token_secret: config.access_token_secret)
+
+init_db = ->
+  db.run('CREATE TABLE IF NOT EXISTS
+    followings(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id VARCHAR(50) NOT NULL,
+    screen_name VARCHAR(255) NULL, followed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    unfollowed_at DATETIME NULL)')
 
 getUser = (fn) ->
   client.get 'account/settings', {}, (err, user, response) =>
@@ -51,7 +58,10 @@ follow = (item) ->
           throw error if error
 
           db.run 'INSERT INTO followings(user_id) VALUES(?)', item.user.id, ->
-            console.log "#{item.user.screen_name} #{chalk.green('following')}"
+            if program.mute?
+              client.post 'mutes/users/create', { user_id: item.user.id }, (error, muted, response) ->
+            console.log "#{item.user.screen_name} #{chalk.green('following')} #{chalk.yellow('[sessiz]') if program.mute?}"
+
 
 unfollow = (user) ->
   db.serialize ->
@@ -100,7 +110,6 @@ unfollow = (user) ->
       unfollowLoop(0)
 
 
-
 program
   .version('1.0.0')
   .usage('-k hashtag -f 1000 -l tr')
@@ -108,25 +117,23 @@ program
   .option('-s, --search', 'Arama')
   .option('-f, --follow <n>', 'Takip edilecek kullanici limiti default: 100', Number)
   .option('-l, --lang [value]', 'Dil', String, 'tr')
+  .option('-m, --mute', 'Sessize al')
   .option('-u, --unfollow', 'Takip etmeyenleri takibi birak', ->
     getUser (user) ->
-      console.log("SORUNLU")
+      console.log(chalk.red("!!!SORUNLU!!!"))
       unfollow(user)
   )
-  .option('-c, --createdb', 'Veritabani olustur', ->
-    db.run('CREATE TABLE IF NOT EXISTS
-      followings(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id VARCHAR(50) NOT NULL,
-      screen_name VARCHAR(255) NULL, followed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      unfollowed_at DATETIME NULL)')
-    console.log "#{chalk.green('db')} olusturuldu"
+  .option('-i, --initdb', 'Tabloyu olustur', ->
+    init_db()
   )
   .parse(process.argv)
+
 
 unless process.argv.slice(2).length
   program.outputHelp()
   process.exit(1)
 
-unless program.unfollow? or program.createdb?
+unless program.unfollow? or program.initdb?
   unless (program.follow? or program.keyword?)
     program.outputHelp()
     process.exit(1)
